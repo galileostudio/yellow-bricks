@@ -10,8 +10,8 @@ import (
 type PluginSettings struct {
 	Host string `json:"host"` // Ex: dbc-6d40f870-08fd.cloud.databricks.com
 	// User não é obrigatório se a autenticação é somente via token
-	User string `json:"user,omitempty"`
 	Token *SecretPluginSettings `json:"-"`
+	Path string `json:"path"`
 }
 
 type SecretPluginSettings struct {

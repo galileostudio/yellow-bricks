@@ -1,13 +1,23 @@
 import React, { ChangeEvent } from 'react';
 import { InlineField, Input, SecretInput } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { MyDataSourceOptions, MySecureJsonData } from '../types';
+import { DataBricksSourceOptions, DataBricksSecureJsonData } from '../types';
 
-interface Props extends DataSourcePluginOptionsEditorProps<MyDataSourceOptions, MySecureJsonData> {}
+interface Props extends DataSourcePluginOptionsEditorProps<DataBricksSourceOptions, DataBricksSecureJsonData> { }
 
 export function ConfigEditor(props: Props) {
   const { onOptionsChange, options } = props;
   const { jsonData, secureJsonFields, secureJsonData } = options;
+
+  const onHostChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onOptionsChange({
+      ...options,
+      jsonData: {
+        ...jsonData,
+        host: event.target.value,
+      },
+    });
+  };
 
   const onPathChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
@@ -19,51 +29,62 @@ export function ConfigEditor(props: Props) {
     });
   };
 
-  // Secure field (only sent to the backend)
-  const onAPIKeyChange = (event: ChangeEvent<HTMLInputElement>) => {
+
+  const onTokenChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,
       secureJsonData: {
-        apiKey: event.target.value,
+        token: event.target.value,
       },
     });
   };
 
-  const onResetAPIKey = () => {
+  const onResetToken = () => {
     onOptionsChange({
       ...options,
       secureJsonFields: {
         ...options.secureJsonFields,
-        apiKey: false,
+        token: false,
       },
       secureJsonData: {
         ...options.secureJsonData,
-        apiKey: '',
+        token: '',
       },
     });
   };
 
   return (
     <>
-      <InlineField label="Path" labelWidth={14} interactive tooltip={'Json field returned to frontend'}>
+      <InlineField label="Host" labelWidth={14} interactive tooltip={'Json field returned to frontend'}>
         <Input
           id="config-editor-path"
-          onChange={onPathChange}
-          value={jsonData.path}
-          placeholder="Enter the path, e.g. /api/v1"
+          onChange={onHostChange}
+          value={jsonData.host || ''}
+          placeholder="Enter the Host, e.g. galileostdio-databricks.com"
           width={40}
         />
       </InlineField>
-      <InlineField label="API Key" labelWidth={14} interactive tooltip={'Secure json field (backend only)'}>
+
+      <InlineField label="Path" labelWidth={14} interactive tooltip="Path for authentication">
+        <Input
+          id="config-editor-path"
+          onChange={onPathChange}
+          value={jsonData.path || ''}
+          placeholder="Enter your path, e.g. /sql/1.0/warehouses/"
+          width={40}
+        />
+      </InlineField>
+
+      <InlineField label="Token" labelWidth={14} interactive tooltip={'Secure json field (backend only)'}>
         <SecretInput
           required
           id="config-editor-api-key"
-          isConfigured={secureJsonFields.apiKey}
-          value={secureJsonData?.apiKey}
-          placeholder="Enter your API key"
+          isConfigured={secureJsonFields.token}
+          value={secureJsonData?.token}
+          placeholder="Enter your access token"
           width={40}
-          onReset={onResetAPIKey}
-          onChange={onAPIKeyChange}
+          onReset={onResetToken}
+          onChange={onTokenChange}
         />
       </InlineField>
     </>

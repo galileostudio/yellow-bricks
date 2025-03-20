@@ -33,18 +33,7 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 		return nil, fmt.Errorf("erro ao carregar configurações: %w", err)
 	}
 
-	var connStr string
-	if config.User != "" {
-    	connStr = fmt.Sprintf(
-        	"jdbc:databricks://%s:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s;UID=%s",
-        	config.Host, config.Token.Token, config.User,
-    	)
-	} else {
-    	connStr = fmt.Sprintf(
-        	"jdbc:databricks://%s:443/default;transportMode=http;ssl=1;AuthMech=3;httpPath=%s",
-        	config.Host, config.Token.Token,
-    	)
-	}
+	var connStr string = fmt.Sprintf("token:%s@%s:443/%s", config.Token.Token, config.Host, config.Path,)
 
 
 	db, err := sql.Open("databricks", connStr)
