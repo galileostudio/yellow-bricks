@@ -8,12 +8,14 @@ import (
 )
 
 type PluginSettings struct {
-	Path    string                `json:"path"`
-	Secrets *SecretPluginSettings `json:"-"`
+	Host string `json:"host"` // Ex: dbc-6d40f870-08fd.cloud.databricks.com
+	// User não é obrigatório se a autenticação é somente via token
+	User string `json:"user,omitempty"`
+	Token *SecretPluginSettings `json:"-"`
 }
 
 type SecretPluginSettings struct {
-	ApiKey string `json:"apiKey"`
+	Token string `json:"token"`
 }
 
 func LoadPluginSettings(source backend.DataSourceInstanceSettings) (*PluginSettings, error) {
@@ -23,13 +25,13 @@ func LoadPluginSettings(source backend.DataSourceInstanceSettings) (*PluginSetti
 		return nil, fmt.Errorf("could not unmarshal PluginSettings json: %w", err)
 	}
 
-	settings.Secrets = loadSecretPluginSettings(source.DecryptedSecureJSONData)
+	settings.Token = loadSecretPluginSettings(source.DecryptedSecureJSONData)
 
 	return &settings, nil
 }
 
 func loadSecretPluginSettings(source map[string]string) *SecretPluginSettings {
 	return &SecretPluginSettings{
-		ApiKey: source["apiKey"],
+		Token: source["token"],
 	}
 }
