@@ -53,6 +53,17 @@ export function ConfigEditor(props: Props) {
     });
   };
 
+  const onCatalogChange = (event: ChangeEvent<HTMLInputElement>) => {
+    onOptionsChange({
+      ...options,
+      jsonData: {
+        ...jsonData,
+        catalog: event.target.value,
+      },
+    });
+  };
+
+
   return (
     <>
       <InlineField label="Host" labelWidth={14} interactive tooltip={'Json field returned to frontend'}>
@@ -87,6 +98,16 @@ export function ConfigEditor(props: Props) {
           onChange={onTokenChange}
         />
       </InlineField>
+      <InlineField label="Catalog" labelWidth={14} interactive tooltip="Specify the catalog to use">
+        <Input
+          id="config-editor-catalog"
+          onChange={onCatalogChange}
+          value={jsonData.catalog || ''}
+          placeholder="Enter your catalog, e.g. hive_metastore"
+          width={40}
+        />
+      </InlineField>
+
     </>
   );
 }

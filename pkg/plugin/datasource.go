@@ -14,28 +14,29 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 )
 
-// Assegura que a Datasource implementa as interfaces necessárias.
+// Garante que Datasource implementa as interfaces necessárias
 var (
 	_ backend.QueryDataHandler      = (*Datasource)(nil)
 	_ backend.CheckHealthHandler    = (*Datasource)(nil)
 	_ instancemgmt.InstanceDisposer = (*Datasource)(nil)
 )
 
-// Struct de configuração
+// Estrutura principal do Datasource
 type Datasource struct {
 	DB     *sql.DB
 	config *models.PluginSettings
 }
 
-// Criar nova instância do Datasource
+// Cria uma nova instância do Datasource
 func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	config, err := models.LoadPluginSettings(settings)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao carregar configurações: %w", err)
 	}
 
-	connStr := fmt.Sprintf("token:%s@%s:443/%s", config.Token.Token, config.Host, config.Path)
+	fmt.Println("🔍 Configuração carregada - Catalog:", config.Catalog)
 
+	connStr := fmt.Sprintf("token:%s@%s:443/%s", config.Token.Token, config.Host, config.Path)
 	db, err := sql.Open("databricks", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao conectar ao Databricks: %w", err)
@@ -44,14 +45,14 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 	return &Datasource{DB: db, config: config}, nil
 }
 
-// Dispose limpa os recursos da instância do datasource.
+// Libera recursos da instância do datasource
 func (d *Datasource) Dispose() {
 	if d.DB != nil {
 		d.DB.Close()
 	}
 }
 
-// QueryData lida com as queries e retorna múltiplas respostas.
+// QueryData processa as queries enviadas pelo Grafana
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 	response := backend.NewQueryDataResponse()
 
@@ -63,7 +64,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 	return response, nil
 }
 
-// Modelo de query
+// Modelo para receber queries JSON
 type queryModel struct {
 	RawSQL string `json:"queryText"`
 }
@@ -115,7 +116,7 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 	return response
 }
 
-// CheckHealth lida com verificações de saúde do datasource.
+// CheckHealth verifica se o datasource está funcional
 func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequest) (*backend.CheckHealthResult, error) {
 	if err := d.DB.PingContext(ctx); err != nil {
 		return &backend.CheckHealthResult{
@@ -129,45 +130,75 @@ func (d *Datasource) CheckHealth(ctx context.Context, _ *backend.CheckHealthRequ
 	}, nil
 }
 
-// CallResource expõe endpoints para obter tabelas e colunas.
+// CallResource expõe endpoints para obter catálogos, bancos e tabelas
 func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResourceRequest, sender backend.CallResourceResponseSender) error {
 	switch req.Path {
-	
-	case "query-types":
-		queryTypes := []string{"SQL", "Table", "Metadata"}
-		return sendJSON(sender, map[string][]string{"queryTypes": queryTypes})
-	
-	case "tables":
-		tables, err := d.GetTables(ctx)
+
+	case "databases":
+
+		catalog := d.config.Catalog
+		if catalog == "" {
+			return sendError(sender, backend.StatusBadRequest, "Catalog name is required")
+		}
+		
+		databases, err := d.GetDatabases(ctx, catalog)
 		if err != nil {
 			return sendError(sender, backend.StatusInternal, err.Error())
 		}
-		return sendJSON(sender, tables)
+		return sendJSON(sender, databases)
 
-	case "columns":
+	case "tables":
 		u, err := url.Parse("http://dummy?" + req.URL)
 		if err != nil {
 			return sendError(sender, backend.StatusBadRequest, "Invalid URL")
 		}
 
-		tableName := u.Query().Get("table")
-		if tableName == "" {
-			return sendError(sender, backend.StatusBadRequest, "table name is required")
+		catalog := d.config.Catalog
+		database := u.Query().Get("database")
+		if catalog == "" || database == "" {
+			return sendError(sender, backend.StatusBadRequest, "Catalog and database are required")
 		}
 
-		columns, err := d.GetColumns(ctx, tableName)
+		tables, err := d.GetTables(ctx, catalog, database)
 		if err != nil {
 			return sendError(sender, backend.StatusInternal, err.Error())
 		}
-		return sendJSON(sender, columns)
+		return sendJSON(sender, tables)
 	}
 
 	return sendError(sender, backend.StatusNotFound, "Invalid endpoint")
 }
 
-// GetTables retorna as tabelas do Databricks.
-func (d *Datasource) GetTables(ctx context.Context) ([]string, error) {
-	rows, err := d.DB.QueryContext(ctx, "SELECT table_name FROM information_schema.tables WHERE table_schema = 'default'")
+// Lista os databases dentro de um catálogo
+func (d *Datasource) GetDatabases(ctx context.Context, catalog string) ([]string, error) {
+	
+	query := fmt.Sprintf("SHOW SCHEMAS IN %s", catalog)
+
+	rows, err := d.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var databases []string
+	for rows.Next() {
+		var database string
+		if err := rows.Scan(&database); err != nil {
+			return nil, err
+		}
+		databases = append(databases, database)
+	}
+	return databases, nil
+}
+
+func (d *Datasource) GetTables(ctx context.Context, catalog string, database string) ([]string, error) {
+	
+	fmt.Print("DESTRUCTION Catalog: ", catalog)
+	fmt.Print("DESTRUCTION Database: ", database)
+
+	query := fmt.Sprintf("SHOW TABLES IN %s.%s", catalog, database)
+	
+	rows, err := d.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -184,27 +215,6 @@ func (d *Datasource) GetTables(ctx context.Context) ([]string, error) {
 	return tables, nil
 }
 
-// GetColumns retorna as colunas de uma tabela.
-func (d *Datasource) GetColumns(ctx context.Context, tableName string) ([]string, error) {
-	query := fmt.Sprintf("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", tableName)
-	rows, err := d.DB.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var columns []string
-	for rows.Next() {
-		var column string
-		if err := rows.Scan(&column); err != nil {
-			return nil, err
-		}
-		columns = append(columns, column)
-	}
-	return columns, nil
-}
-
-// Função auxiliar para enviar JSON
 func sendJSON(sender backend.CallResourceResponseSender, data interface{}) error {
 	body, err := json.Marshal(data)
 	if err != nil {

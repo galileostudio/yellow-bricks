@@ -26,6 +26,7 @@ export interface DataSourceResponse {
 export interface DataBricksSourceOptions extends DataSourceJsonData {
   host?: string;
   path?: string;
+  catalog?: string;
 }
 
 /**
@@ -37,4 +38,12 @@ export interface DataBricksSecureJsonData {
 
 export interface QueryTypesResponse {
   queryTypes: string[];
+}
+
+export interface DatabricksQuery {
+  queryText?: string;
+  database?: string;
+  table?: string;
+  column?: string;
+  aggregation?: string;
 }
