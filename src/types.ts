@@ -3,12 +3,13 @@ import { DataQuery } from '@grafana/schema';
 
 export interface DatabricksQuery extends DataQuery {
   queryText?: string;
-  constant: number;
+  table?: string;
+  column?: string;
+  limit?: number;
 }
 
-export const DEFAULT_QUERY: Partial<DatabricksQuery> = {
-  constant: 6.5,
-};
+
+export const DEFAULT_QUERY: Partial<DatabricksQuery> = {};
 
 export interface DataPoint {
   Time: number;
@@ -32,4 +33,8 @@ export interface DataBricksSourceOptions extends DataSourceJsonData {
  */
 export interface DataBricksSecureJsonData {
   token?: string;
+}
+
+export interface QueryTypesResponse {
+  queryTypes: string[];
 }

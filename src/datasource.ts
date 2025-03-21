@@ -1,9 +1,10 @@
 import { DataSourceInstanceSettings, CoreApp, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
-import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY } from './types';
+// import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY } from './types';
+import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY, QueryTypesResponse } from './types';
 
-export class DataSource extends DataSourceWithBackend<DatabricksQuery, DataBricksSourceOptions> {
+export class DataBricksDataSource extends DataSourceWithBackend<DatabricksQuery, DataBricksSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<DataBricksSourceOptions>) {
     super(instanceSettings);
   }
@@ -23,4 +24,9 @@ export class DataSource extends DataSourceWithBackend<DatabricksQuery, DataBrick
     // if no query has been provided, prevent the query from being executed
     return !!query.queryText;
   }
+  
+  async getAvailableQueryTypes(): Promise<QueryTypesResponse> {
+    return this.getResource<QueryTypesResponse>('query-types');
+  }
+
 }
