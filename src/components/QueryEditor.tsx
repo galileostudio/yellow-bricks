@@ -1,5 +1,5 @@
 import React, { ReactElement, useEffect, useState } from 'react';
-import { Button, InlineField, InlineFieldRow, Select, TextArea } from '@grafana/ui';
+import { Button, InlineField, InlineFieldRow, Select, TextArea, CodeEditor } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataBricksDataSource } from '../datasource';
 import { DatabricksQuery, DataBricksSourceOptions } from '../types';
@@ -7,7 +7,7 @@ import { DatabricksQuery, DataBricksSourceOptions } from '../types';
 type Props = QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions>;
 
 export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
-  const [mode, setMode] = useState<'visual' | 'raw'>('visual');
+  const [mode, setMode] = useState<'visual' | 'raw'>('raw');
 
   const [databases, setDatabases] = useState<Array<SelectableValue<string>>>([]);
   const [tables, setTables] = useState<Array<SelectableValue<string>>>([]);
@@ -65,9 +65,9 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
     onChange({ ...query, aggregation: value.value });
   };
 
-  const onRawChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange({ ...query, queryText: e.currentTarget.value });
-  };
+  // const onRawChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  //   onChange({ ...query, queryText: e.currentTarget.value });
+  // };
 
   return (
     <>
@@ -109,11 +109,15 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
       ) : (
         <InlineFieldRow>
           <InlineField label="Raw SQL" grow>
-            <TextArea
-              rows={6}
-              value={query.queryText || ''}
-              onChange={onRawChange}
-              placeholder="Escreva sua query SQL aqui"
+            <CodeEditor
+              language="sql"
+              height="150px"
+              value={query.queryText ?? ''}
+              onBlur={(val) => {
+                onChange({ ...query, queryText: val });
+                onRunQuery();
+              }}
+              showMiniMap={false}
             />
           </InlineField>
         </InlineFieldRow>
