@@ -13,19 +13,32 @@ export interface FieldSelection {
   alias?: string;
 }
 
+
 /**
  * Estrutura principal da query do plugin.
  * Suporta dois modos:
  * - Raw Mode: usa `queryText`
  * - Visual Mode: usa `database`, `table` e `fields` (array de FieldSelection)
  */
+// export interface DatabricksQuery extends DataQuery {
+//   queryText?: string;
+
+//   // Visual mode
+//   database?: string;
+//   table?: string;
+//   fields?: FieldSelection[];
+// }
+
+
 export interface DatabricksQuery extends DataQuery {
   queryText?: string;
-
-  // Visual mode
   database?: string;
   table?: string;
   fields?: FieldSelection[];
+  enableFilter?: boolean;
+  enableGroup?: boolean;
+  enableOrder?: boolean;
+  enablePreview?: boolean;
 }
 
 /**

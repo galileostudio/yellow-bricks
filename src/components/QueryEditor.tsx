@@ -1,13 +1,22 @@
 import React, { ReactElement, useEffect, useState } from 'react';
-import { Button, InlineField, InlineFieldRow, Select, CodeEditor } from '@grafana/ui';
+import { CodeEditor, InlineField, InlineFieldRow } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataBricksDataSource } from '../datasource';
 import { DatabricksQuery, DataBricksSourceOptions, FieldSelection } from '../types';
+import { QueryToolbar } from './QueryBarTool';
+import { DatabaseTableSelector } from './DatabaseTableSelector';
+import { ColumnBuilder } from './ColumnBuilder';
 
-type Props = QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions>;
+interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> {}
 
 export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
-  const [mode, setMode] = useState<'visual' | 'raw'>('raw');
+  const [format, setFormat] = useState<string>('table');
+  const [enableFilter, setEnableFilter] = useState<boolean>(query.enableFilter ?? false);
+  const [enableGroup, setEnableGroup] = useState<boolean>(query.enableGroup ?? false);
+  const [enableOrder, setEnableOrder] = useState<boolean>(query.enableOrder ?? false);
+  const [enablePreview, setEnablePreview] = useState<boolean>(query.enablePreview ?? true);
+
+  const [mode, setMode] = useState<'visual' | 'raw'>(query.queryText ? 'raw' : 'visual');
   const [databases, setDatabases] = useState<Array<SelectableValue<string>>>([]);
   const [tables, setTables] = useState<Array<SelectableValue<string>>>([]);
   const [columns, setColumns] = useState<Array<SelectableValue<string>>>([]);
@@ -19,6 +28,17 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
     { label: 'MIN', value: 'MIN' },
     { label: 'MAX', value: 'MAX' },
   ];
+
+  useEffect(() => {
+    onChange({
+      ...query,
+      enableFilter,
+      enableGroup,
+      enableOrder,
+      enablePreview,
+    });
+  }, [enableFilter, enableGroup, enableOrder, enablePreview]);
+  
 
   useEffect(() => {
     datasource.getResource('databases').then((dbs) =>
@@ -36,102 +56,83 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
 
   useEffect(() => {
     if (mode === 'visual' && query.database && query.table && query.fields?.length) {
-      const selections = query.fields.map((field) => {
-        const expr = field.aggregation ? `${field.aggregation}(${field.column})` : field.column;
-        return field.alias ? `${expr} AS ${field.alias}` : expr;
+      const selections = query.fields.map((f) => {
+        const expr = f.aggregation ? `${f.aggregation}(${f.column})` : f.column;
+        return f.alias ? `${expr} AS ${f.alias}` : expr;
       });
       const sql = `SELECT ${selections.join(', ')} FROM ${query.database}.${query.table}`;
       onChange({ ...query, queryText: sql });
     }
   }, [query.database, query.table, query.fields, mode]);
 
-  const onDatabaseChange = (value: SelectableValue<string>) => {
-    onChange({ ...query, database: value.value, table: undefined, fields: [] });
+  const onDatabaseChange = (v: SelectableValue<string>) => {
+    onChange({ ...query, database: v.value, table: undefined, fields: [] });
     setTables([]);
     setColumns([]);
-    datasource.getResource(`tables?database=${value.value}`).then((tbls) =>
-      setTables(tbls.map((tbl: string) => ({ label: tbl, value: tbl })))
+    datasource.getResource(`tables?database=${v.value}`).then((tbls) =>
+      setTables(tbls.map((t: string) => ({ label: t, value: t })))
     );
   };
 
-  const onTableChange = (value: SelectableValue<string>) => {
-    onChange({ ...query, table: value.value, fields: [] });
+  const onTableChange = (v: SelectableValue<string>) => {
+    onChange({ ...query, table: v.value, fields: [] });
     setColumns([]);
   };
 
-  const addColumn = () => {
+  const updateField = (index: number, key: keyof FieldSelection, value: string) => {
+    const updated = [...(query.fields || [])];
+    updated[index] = { ...updated[index], [key]: value };
+    onChange({ ...query, fields: updated });
+  };
+
+  const addField = () => {
     const updated = [...(query.fields || []), { column: '', aggregation: '', alias: '' }];
     onChange({ ...query, fields: updated });
   };
 
-  const removeColumn = (index: number) => {
+  const removeField = (index: number) => {
     const updated = [...(query.fields || [])];
     updated.splice(index, 1);
     onChange({ ...query, fields: updated });
   };
 
-  const updateColumnField = (index: number, field: keyof FieldSelection, value: string) => {
-    const updated = [...(query.fields || [])];
-    updated[index] = { ...updated[index], [field]: value };
-    onChange({ ...query, fields: updated });
-  };
-
   return (
     <>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => setMode(mode === 'visual' ? 'raw' : 'visual')}
-        style={{ marginBottom: '10px' }}
-      >
-        {mode === 'visual' ? 'Switch to Raw Mode' : 'Switch to Visual Mode'}
-      </Button>
+      <QueryToolbar
+    format={format}
+    onFormatChange={(v) => setFormat(v.value ?? 'table')}
+    enableFilter={enableFilter}
+    enableGroup={enableGroup}
+    enableOrder={enableOrder}
+    enablePreview={enablePreview}
+    onToggleFilter={() => setEnableFilter((v) => !v)}
+    onToggleGroup={() => setEnableGroup((v) => !v)}
+    onToggleOrder={() => setEnableOrder((v) => !v)}
+    onTogglePreview={() => setEnablePreview((v) => !v)}
+    onRunQuery={onRunQuery}
+    mode={mode}
+    onModeToggle={(m) => setMode(m)}
+  />
 
       {mode === 'visual' ? (
         <>
-          <InlineFieldRow>
-            <InlineField label="Database" grow>
-              <Select options={databases} onChange={onDatabaseChange} value={query.database} />
-            </InlineField>
-          </InlineFieldRow>
+          <DatabaseTableSelector
+            database={query.database}
+            table={query.table}
+            databases={databases}
+            tables={tables}
+            onDatabaseChange={onDatabaseChange}
+            onTableChange={onTableChange}
+          />
 
-          <InlineFieldRow>
-            <InlineField label="Table" grow>
-              <Select options={tables} onChange={onTableChange} value={query.table} />
-            </InlineField>
-          </InlineFieldRow>
-
-          {(query.fields || []).map((col, idx) => (
-            <InlineFieldRow key={idx} style={{ alignItems: 'center' }}>
-              <InlineField label="Column" grow>
-                <Select
-                  options={columns}
-                  value={col.column}
-                  onChange={(v) => updateColumnField(idx, 'column', v.value!)}
-                />
-              </InlineField>
-              <InlineField label="Aggregation (opt)" grow>
-                <Select
-                  options={[{ label: 'None', value: '' }, ...aggregations]}
-                  value={col.aggregation || ''}
-                  onChange={(v) => updateColumnField(idx, 'aggregation', v.value!)}
-                />
-              </InlineField>
-              <InlineField label="Alias (opt)" grow>
-                <input
-                  type="text"
-                  value={col.alias || ''}
-                  onChange={(e) => updateColumnField(idx, 'alias', e.target.value)}
-                  className="gf-form-input"
-                />
-              </InlineField>
-              <Button variant="destructive" icon="trash-alt" onClick={() => removeColumn(idx)} />
-            </InlineFieldRow>
-          ))}
-
-          <Button icon="plus" variant="secondary" onClick={addColumn} style={{ marginTop: 8 }}>
-            Add Column
-          </Button>
+          <ColumnBuilder
+            fields={query.fields || []}
+            columns={columns}
+            aggregations={aggregations}
+            onAddField={addField}
+            onRemoveField={removeField}
+            onChangeField={updateField}
+          />
         </>
       ) : (
         <InlineFieldRow>
