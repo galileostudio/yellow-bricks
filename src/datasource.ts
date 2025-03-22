@@ -1,8 +1,7 @@
 import { DataSourceInstanceSettings, CoreApp, ScopedVars } from '@grafana/data';
 import { DataSourceWithBackend, getTemplateSrv } from '@grafana/runtime';
 
-// import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY } from './types';
-import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY, QueryTypesResponse } from './types';
+import { DatabricksQuery, DataBricksSourceOptions, DEFAULT_QUERY } from './types';
 
 export class DataBricksDataSource extends DataSourceWithBackend<DatabricksQuery, DataBricksSourceOptions> {
   constructor(instanceSettings: DataSourceInstanceSettings<DataBricksSourceOptions>) {
@@ -16,17 +15,12 @@ export class DataBricksDataSource extends DataSourceWithBackend<DatabricksQuery,
   applyTemplateVariables(query: DatabricksQuery, scopedVars: ScopedVars) {
     return {
       ...query,
-      queryText: getTemplateSrv().replace(query.queryText, scopedVars),
+      queryText: getTemplateSrv().replace(query.queryText ?? '', scopedVars),
     };
   }
 
   filterQuery(query: DatabricksQuery): boolean {
-    // if no query has been provided, prevent the query from being executed
+    // No raw query? Ignore.
     return !!query.queryText;
   }
-  
-  async getAvailableQueryTypes(): Promise<QueryTypesResponse> {
-    return this.getResource<QueryTypesResponse>('query-types');
-  }
-
 }

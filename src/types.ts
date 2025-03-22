@@ -1,27 +1,42 @@
 import { DataSourceJsonData } from '@grafana/data';
 import { DataQuery } from '@grafana/schema';
 
-export interface DatabricksQuery extends DataQuery {
-  queryText?: string;
-  table?: string;
+/**
+ * Representa uma seleção individual de campo no modo visual:
+ * - Nome da coluna
+ * - Agregação opcional (ex: COUNT, AVG, etc)
+ * - Alias opcional
+ */
+export interface FieldSelection {
   column?: string;
-  limit?: number;
-}
-
-
-export const DEFAULT_QUERY: Partial<DatabricksQuery> = {};
-
-export interface DataPoint {
-  Time: number;
-  Value: number;
-}
-
-export interface DataSourceResponse {
-  datapoints: DataPoint[];
+  aggregation?: string;
+  alias?: string;
 }
 
 /**
- * These are options configured for each DataSource instance
+ * Estrutura principal da query do plugin.
+ * Suporta dois modos:
+ * - Raw Mode: usa `queryText`
+ * - Visual Mode: usa `database`, `table` e `fields` (array de FieldSelection)
+ */
+export interface DatabricksQuery extends DataQuery {
+  queryText?: string;
+
+  // Visual mode
+  database?: string;
+  table?: string;
+  fields?: FieldSelection[];
+}
+
+/**
+ * Valor padrão para uma nova query.
+ */
+export const DEFAULT_QUERY: Partial<DatabricksQuery> = {
+  fields: [],
+};
+
+/**
+ * Configurações visíveis no editor de datasource.
  */
 export interface DataBricksSourceOptions extends DataSourceJsonData {
   host?: string;
@@ -30,20 +45,8 @@ export interface DataBricksSourceOptions extends DataSourceJsonData {
 }
 
 /**
- * Value that is used in the backend, but never sent over HTTP to the frontend
+ * Configurações sensíveis que não são enviadas ao frontend.
  */
 export interface DataBricksSecureJsonData {
   token?: string;
-}
-
-export interface QueryTypesResponse {
-  queryTypes: string[];
-}
-
-export interface DatabricksQuery {
-  queryText?: string;
-  database?: string;
-  table?: string;
-  column?: string;
-  aggregation?: string;
 }
