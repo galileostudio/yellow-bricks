@@ -6,8 +6,9 @@ import { DatabricksQuery, DataBricksSourceOptions, FieldSelection } from '../typ
 import { QueryToolbar } from './QueryBarTool';
 import { DatabaseTableSelector } from './DatabaseTableSelector';
 import { ColumnBuilder } from './ColumnBuilder';
+import { QueryPreview } from './QueryPreview';
 
-interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> {}
+interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
 export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
   const [format, setFormat] = useState<string>('table');
@@ -38,7 +39,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
       enablePreview,
     });
   }, [enableFilter, enableGroup, enableOrder, enablePreview]);
-  
+
 
   useEffect(() => {
     datasource.getResource('databases').then((dbs) =>
@@ -96,23 +97,57 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
     onChange({ ...query, fields: updated });
   };
 
+  const handleFormatChange = (v: SelectableValue<string>) => {
+    setFormat(v.value ?? 'table');
+    onChange({ ...query, format: v.value ?? 'table' });
+  };
+
+  const handleToggleFilter = () => {
+    const value = !enableFilter;
+    setEnableFilter(value);
+    onChange({ ...query, enableFilter: value });
+  };
+
+  const handleToggleGroup = () => {
+    const value = !enableGroup;
+    setEnableGroup(value);
+    onChange({ ...query, enableGroup: value });
+  };
+
+  const handleToggleOrder = () => {
+    const value = !enableOrder;
+    setEnableOrder(value);
+    onChange({ ...query, enableOrder: value });
+  };
+
+  const handleTogglePreview = () => {
+    const value = !enablePreview;
+    setEnablePreview(value);
+    onChange({ ...query, enablePreview: value });
+  };
+
+  const handleModeToggle = (selectedMode: 'visual' | 'raw') => {
+    setMode(selectedMode);
+  };
+
   return (
     <>
+
       <QueryToolbar
-    format={format}
-    onFormatChange={(v) => setFormat(v.value ?? 'table')}
-    enableFilter={enableFilter}
-    enableGroup={enableGroup}
-    enableOrder={enableOrder}
-    enablePreview={enablePreview}
-    onToggleFilter={() => setEnableFilter((v) => !v)}
-    onToggleGroup={() => setEnableGroup((v) => !v)}
-    onToggleOrder={() => setEnableOrder((v) => !v)}
-    onTogglePreview={() => setEnablePreview((v) => !v)}
-    onRunQuery={onRunQuery}
-    mode={mode}
-    onModeToggle={(m) => setMode(m)}
-  />
+        format={format}
+        onFormatChange={handleFormatChange}
+        enableFilter={enableFilter}
+        enableGroup={enableGroup}
+        enableOrder={enableOrder}
+        enablePreview={enablePreview}
+        onToggleFilter={handleToggleFilter}
+        onToggleGroup={handleToggleGroup}
+        onToggleOrder={handleToggleOrder}
+        onTogglePreview={handleTogglePreview}
+        onRunQuery={onRunQuery}
+        mode={mode}
+        onModeToggle={handleModeToggle}
+      />
 
       {mode === 'visual' ? (
         <>
@@ -125,14 +160,29 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
             onTableChange={onTableChange}
           />
 
-          <ColumnBuilder
-            fields={query.fields || []}
-            columns={columns}
-            aggregations={aggregations}
-            onAddField={addField}
-            onRemoveField={removeField}
-            onChangeField={updateField}
-          />
+          <div
+            style={{
+              padding: '8px',
+              backgroundColor: 'rgb(34, 37, 43)',
+              borderRadius: 2,
+              marginTop: '8px',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
+            }}
+          >
+            <ColumnBuilder
+              fields={query.fields || []}
+              columns={columns}
+              aggregations={aggregations}
+              onAddField={addField}
+              onRemoveField={removeField}
+              onChangeField={updateField}
+            />
+          </div>
+
+          {query.enablePreview && (
+            <QueryPreview sql={query.queryText ?? ''} />
+          )}
+          
         </>
       ) : (
         <InlineFieldRow>

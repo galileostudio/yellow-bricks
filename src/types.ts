@@ -32,9 +32,13 @@ export interface FieldSelection {
 
 export interface DatabricksQuery extends DataQuery {
   queryText?: string;
+
+  // Visual mode
+  format?: string;
   database?: string;
   table?: string;
   fields?: FieldSelection[];
+
   enableFilter?: boolean;
   enableGroup?: boolean;
   enableOrder?: boolean;

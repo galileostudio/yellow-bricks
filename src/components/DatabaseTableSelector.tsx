@@ -20,24 +20,34 @@ export const DatabaseTableSelector: React.FC<Props> = ({
   onTableChange,
 }) => {
   return (
-    <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-      <InlineField label="Database" labelWidth={16}>
+    <div
+            style={{
+              padding: '8px',
+              backgroundColor: 'rgb(34, 37, 43)',
+              borderRadius: 2,
+              marginTop: '8px',
+              boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.05)',
+              display: 'flex',
+            }}
+          >
+                
+      <InlineField label="Database" labelWidth={8}>
         <Select
           options={databases}
           value={database}
           onChange={onDatabaseChange}
           placeholder="Select database"
-          width={24}
+          width={25}
         />
       </InlineField>
 
-      <InlineField label="Table" labelWidth={12}>
+      <InlineField label="Table" labelWidth={6}>
         <Select
           options={tables}
           value={table}
           onChange={onTableChange}
           placeholder="Select table"
-          width={24}
+          width={25}
         />
       </InlineField>
     </div>
