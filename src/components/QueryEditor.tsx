@@ -51,7 +51,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
   useEffect(() => {
     if (query.database && query.table) {
       datasource.getResource(`columns?database=${query.database}&table=${query.table}`).then((cols) =>
-        setColumns(cols.map((col: string) => ({ label: col, value: col })))
+        setColumns([{ label: '*', value: '*' }, ...cols.map((col: string) => ({ label: col, value: col }))])
       );
     }
   }, [query.database, query.table]);
@@ -59,6 +59,9 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
   useEffect(() => {
     if (mode === 'visual' && query.database && query.table && query.fields?.length) {
       const selections = query.fields.map((f) => {
+        if (f.column === '*') {
+          return f.aggregation === 'COUNT' ? `COUNT(*)` : '*';
+        }
         const expr = f.aggregation ? `${f.aggregation}(${f.column})` : f.column;
         return f.alias ? `${expr} AS ${f.alias}` : expr;
       });
@@ -69,7 +72,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
         if (query.orderBy) {
           sql += ` ORDER BY ${query.orderBy} ${query.orderDirection ?? 'ASC'}`;
         }
-        
+
         if (query.limit) {
           sql += ` LIMIT ${query.limit}`;
         }
@@ -197,7 +200,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
 
           {query.enableOrder && (
             <OrderBuilder
-              columns={columns}
+              columns={columns.filter((col) => col.value !== '*')}
               orderBy={query.orderBy}
               orderDirection={(query.orderDirection === 'ASC' || query.orderDirection === 'DESC') ? query.orderDirection : undefined}
               limit={query.limit}
