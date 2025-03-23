@@ -2,13 +2,14 @@ import React, { ReactElement, useEffect, useState } from 'react';
 import { CodeEditor, InlineField, InlineFieldRow, Alert } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataBricksDataSource } from '../datasource';
-import { DatabricksQuery, DataBricksSourceOptions, FieldSelection } from '../types';
+import { DatabricksQuery, DataBricksSourceOptions, FieldSelection, FilterCondition } from '../types';
 import { QueryToolbar } from './QueryBarTool';
 import { DatabaseTableSelector } from './DatabaseTableSelector';
 import { ColumnBuilder } from './ColumnBuilder';
 import { QueryPreview } from './QueryPreview';
 import { OrderBuilder } from './OrderBuilder';
 import { GroupByBuilder } from './GroupByBuilder';
+import { FilterBuilder } from './FilterBuilder';
 
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
@@ -39,6 +40,9 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
     onChange({ ...query, groupBy: columns });
   };
 
+  const handleFiltersChange = (filters: FilterCondition[]) => {
+    onChange({ ...query, filters });
+  };
 
   const getDuplicateColumns = (): string[] => {
     const cols = query.fields
@@ -110,7 +114,50 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
         return f.alias ? `${expr} AS ${f.alias}` : expr;
       });
 
+      const filters = (query.filters ?? []).filter((f) => f.column && f.operator);
+      let whereClause = '';
+
+      if (query.enableFilter && filters.length > 0) {
+        whereClause = ' WHERE ' + filters.map((f, idx) => {
+          const logic = idx === 0 ? '' : ` ${f.condition || 'AND'} `;
+          const col = f.column;
+          const op = f.operator;
+          const val = f.value;
+
+          if (['IS NULL', 'IS NOT NULL'].includes(op)) {
+            return `${logic}${col} ${op}`;
+          }
+
+          if (['EXISTS', 'NOT EXISTS'].includes(op)) {
+            return `${logic}${op} (${val})`;
+          }
+
+          if (op === 'BETWEEN' && val?.includes('AND')) {
+            return `${logic}${col} BETWEEN ${val}`;
+          }
+
+          if (['IN', 'NOT IN'].includes(op)) {
+            return `${logic}${col} ${op} (${val})`;
+          }
+
+          if (['LIKE', 'ILIKE', 'NOT LIKE', 'NOT ILIKE', 'REGEXP', 'RLIKE'].includes(op)) {
+            return `${logic}${col} ${op} '${val}'`;
+          }
+
+          if (['ANY', 'SOME', 'ALL'].includes(op)) {
+            return `${logic}${col} = ${op} (${val})`;
+          }
+
+          // default binary operators (=, !=, <, etc)
+          return `${logic}${col} ${op} '${val}'`;
+        }).join('');
+      }
+
       let sql = `SELECT ${selections.join(', ')} FROM ${query.database}.${query.table}`;
+
+      if (whereClause) {
+        sql += whereClause;
+      }
 
       if (query.enableGroup && query.groupBy?.length) {
         sql += ` GROUP BY ${query.groupBy.join(', ')}`;
@@ -130,7 +177,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
 
       onChange({ ...query, queryText: sql });
     }
-  }, [query.database, query.table, query.fields, query.enableOrder, query.groupBy, query.orderBy, query.orderDirection, query.limit, mode]);
+  }, [query.database, query.table, query.fields, query.enableOrder, query.groupBy, query.orderBy, query.orderDirection, query.limit, query.filters, query.enableFilter, mode]);
 
 
   const onDatabaseChange = (v: SelectableValue<string>) => {
@@ -169,6 +216,23 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
     const updated = [...(query.fields || [])];
     updated.splice(index, 1);
     onChange({ ...query, fields: updated });
+  };
+
+  const addFilter = () => {
+    const updated = [...(query.filters || []), { column: '', operator: '=', value: '', condition: 'AND' as "AND" }];
+    onChange({ ...query, filters: updated });
+  };
+
+  const removeFilter = (index: number) => {
+    const updated = [...(query.filters || [])];
+    updated.splice(index, 1);
+    onChange({ ...query, filters: updated });
+  };
+
+  const updateFilter = (index: number, key: keyof FilterCondition, value: string) => {
+    const updated = [...(query.filters || [])];
+    updated[index] = { ...updated[index], [key]: key === 'condition' ? (value as "AND" | "OR") : value };
+    onChange({ ...query, filters: updated });
   };
 
   const handleFormatChange = (v: SelectableValue<string>) => {
@@ -252,6 +316,17 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
               onChangeField={updateField}
             />
           </div>
+
+          {query.enableFilter && (
+
+            <FilterBuilder
+              filters={(query.filters || []).map(filter => ({ ...filter, value: filter.value || '' }))}
+              columns={columns}
+              onAdd={addFilter}
+              onRemove={removeFilter}
+              onChange={updateFilter}
+            />
+          )}
 
           {query.enableGroup && (
             <GroupByBuilder
