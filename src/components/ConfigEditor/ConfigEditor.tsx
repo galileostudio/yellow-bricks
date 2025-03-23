@@ -1,7 +1,7 @@
 import React, { ChangeEvent } from 'react';
 import { InlineField, Input, SecretInput } from '@grafana/ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
-import { DataBricksSourceOptions, DataBricksSecureJsonData } from '../types';
+import { DataBricksSourceOptions, DataBricksSecureJsonData } from '../../types';
 
 interface Props extends DataSourcePluginOptionsEditorProps<DataBricksSourceOptions, DataBricksSecureJsonData> { }
 

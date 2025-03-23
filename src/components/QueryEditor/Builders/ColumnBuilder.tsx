@@ -1,7 +1,7 @@
 import React from 'react';
 import { InlineField, InlineFieldRow, Button, Select } from '@grafana/ui';
 import { SelectableValue } from '@grafana/data';
-import { FieldSelection } from '../types';
+import { FieldSelection } from '../../../types';
 
 export interface ColumnSelection {
     column?: string;

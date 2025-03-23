@@ -1,15 +1,15 @@
 import React, { ReactElement, useEffect, useState } from 'react';
 import { CodeEditor, InlineField, InlineFieldRow, Alert } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
-import { DataBricksDataSource } from '../datasource';
-import { DatabricksQuery, DataBricksSourceOptions, FieldSelection, FilterCondition } from '../types';
-import { QueryToolbar } from './QueryBarTool';
-import { DatabaseTableSelector } from './DatabaseTableSelector';
-import { ColumnBuilder } from './ColumnBuilder';
-import { QueryPreview } from './QueryPreview';
-import { OrderBuilder } from './OrderBuilder';
-import { GroupByBuilder } from './GroupByBuilder';
-import { FilterBuilder } from './FilterBuilder';
+import { DataBricksDataSource } from '../../datasource';
+import { DatabricksQuery, DataBricksSourceOptions, FieldSelection, FilterCondition } from '../../types';
+import { QueryToolbar } from './Toolbar/QueryToolbar';
+import { DatabaseTableSelector } from './Toolbar/DatabaseTableSelector';
+import { ColumnBuilder } from './Builders/ColumnBuilder';
+import { QueryPreview } from './Preview/QueryPreview';
+import { OrderBuilder } from './Builders/OrderBuilder';
+import { GroupByBuilder } from './Builders/GroupByBuilder';
+import { FilterBuilder } from './Builders/FilterBuilder';
 
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
@@ -38,10 +38,6 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
 
   const handleGroupByChange = (columns: string[]) => {
     onChange({ ...query, groupBy: columns });
-  };
-
-  const handleFiltersChange = (filters: FilterCondition[]) => {
-    onChange({ ...query, filters });
   };
 
   const getDuplicateColumns = (): string[] => {
