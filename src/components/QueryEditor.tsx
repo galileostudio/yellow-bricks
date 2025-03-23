@@ -8,6 +8,8 @@ import { DatabaseTableSelector } from './DatabaseTableSelector';
 import { ColumnBuilder } from './ColumnBuilder';
 import { QueryPreview } from './QueryPreview';
 import { OrderBuilder } from './OrderBuilder';
+import { GroupByBuilder } from './GroupByBuilder';
+
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
@@ -33,14 +35,19 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const handleGroupByChange = (columns: string[]) => {
+    onChange({ ...query, groupBy: columns });
+  };
+
+
   const getDuplicateColumns = (): string[] => {
     const cols = query.fields
       ?.map((f) => f.alias?.trim() || f.column?.trim())
       .filter((col): col is string => Boolean(col)) || [];
-  
+
     const seen = new Set<string>();
     const duplicates = new Set<string>();
-  
+
     for (const col of cols) {
       if (seen.has(col)) {
         duplicates.add(col);
@@ -48,27 +55,25 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
         seen.add(col);
       }
     }
-  
+
     return Array.from(duplicates);
   };
-  
+
 
   const handleRunQuery = () => {
     if (mode === 'visual') {
       const duplicates = getDuplicateColumns();
-  
+
       if (duplicates.length > 0) {
         const formatted = duplicates.map((d) => `"${d}"`).join(', ');
         setErrorMessage(`duplicate column names are not allowed, found identical name: ${formatted}. use aliases for that.`);
         return;
       }
     }
-  
+
     setErrorMessage(null);
     onRunQuery();
   };
-  
-  
 
   useEffect(() => {
     onChange({
@@ -107,6 +112,10 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
 
       let sql = `SELECT ${selections.join(', ')} FROM ${query.database}.${query.table}`;
 
+      if (query.enableGroup && query.groupBy?.length) {
+        sql += ` GROUP BY ${query.groupBy.join(', ')}`;
+      }
+
       if (query.enableOrder) {
         if (query.orderBy) {
           sql += ` ORDER BY ${query.orderBy} ${query.orderDirection ?? 'ASC'}`;
@@ -121,7 +130,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
 
       onChange({ ...query, queryText: sql });
     }
-  }, [query.database, query.table, query.fields, query.enableOrder, query.orderBy, query.orderDirection, query.limit, mode]);
+  }, [query.database, query.table, query.fields, query.enableOrder, query.groupBy, query.orderBy, query.orderDirection, query.limit, mode]);
 
 
   const onDatabaseChange = (v: SelectableValue<string>) => {
@@ -243,6 +252,14 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
               onChangeField={updateField}
             />
           </div>
+
+          {query.enableGroup && (
+            <GroupByBuilder
+              columns={columns}
+              selected={query.groupBy ?? []}
+              onChange={handleGroupByChange}
+            />
+          )}
 
           {query.enableOrder && (
             <OrderBuilder

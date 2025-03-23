@@ -39,6 +39,7 @@ export interface DatabricksQuery extends DataQuery {
   table?: string;
   fields?: FieldSelection[];
   orderBy?: string;
+  groupBy?: string[];
   limit?: number;
   orderDirection?: string;
 
