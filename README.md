@@ -1,136 +1,136 @@
-# Grafana data source plugin template
+# <img src="src/img/logo.svg" alt="YellowBricks Logo" width="25" /> YellowBricks Datasource Plugin
 
-This template is a starting point for building a Data Source Plugin for Grafana.
+YellowBricks is a Grafana datasource plugin for Databricks that empowers you to build and execute SQL queries using a dynamic visual query builder or by writing raw SQL. It supports various query formats and advanced options like filtering, grouping, ordering, and previewing results.
 
-## What are Grafana data source plugins?
+## Features
 
-Grafana supports a wide range of data sources, including Prometheus, MySQL, and even Datadog. There’s a good chance you can already visualize metrics from the systems you have set up. In some cases, though, you already have an in-house metrics solution that you’d like to add to your Grafana dashboards. Grafana Data Source Plugins enables integrating such solutions with Grafana.
+- **Visual Query Builder:**  
+  Easily construct queries by selecting the database, table, and columns. Customize your query with optional aggregations, aliases, filters, grouping, and ordering.
 
-## Getting started
+- **Raw SQL Mode:**  
+  For advanced users, switch to raw mode and write SQL queries directly.
 
-### Backend
+- **Dynamic Preview:**  
+  Preview the generated SQL query in a formatted, beautified style before execution.
 
-1. Update [Grafana plugin SDK for Go](https://grafana.com/developers/plugin-tools/key-concepts/backend-plugins/grafana-plugin-sdk-for-go) dependency to the latest minor version:
+- **Flexible Format Options:**  
+  Choose between `table` and `timeseries` output formats. If timeseries is selected, the plugin verifies that a time column (e.g., "time" or "timestamp") is present.
+
+- **Secure Connection:**  
+  Connects to Databricks using token-based authentication. The backend also includes basic validation to prevent unsafe queries.
+
+## Installation
+
+1. **Copy the Plugin:**  
+   Place the YellowBricks plugin folder into your Grafana plugins directory (e.g., `/var/lib/grafana/plugins`).
+
+2. **Restart Grafana:**  
+   Restart the Grafana server to load the new plugin.
+
+3. **Add a New Datasource:**  
+   In Grafana, go to **Configuration > Data Sources** and add a new datasource of type **YellowBricks**.
+
+## Configuration
+
+When configuring the YellowBricks datasource, provide the following details:
+
+- **Host:**  
+  Your Databricks host (e.g., `dbc-xxxxxxxxxx.cloud.databricks.com`).
+
+- **Path:**  
+  The HTTP path for your Databricks SQL Warehouse (e.g., `/sql/1.0/warehouses/your_warehouse_id`).
+
+- **Token:**  
+  Your Databricks access token.
+
+- **Catalog:**  
+  The catalog name (e.g., `hive_metastore`).
+
+## Usage
+
+### Visual Mode
+
+1. **Select Format:**  
+   Choose between **Table** and **Time series** in the toolbar.  
+   - **Time series:** Ensure your query returns a time column (e.g., `time` or `timestamp`).
+   - **Table:** No special time column is required.
+
+2. **Dynamic Query Building:**  
+   Use the query builder to:
+   - Select the database and table.
+   - Choose columns and specify aggregations/aliases.
+   - Configure additional options like filters, grouping, and ordering.
+
+3. **Preview:**  
+   The plugin generates a formatted SQL preview based on your selections.
+
+4. **Run Query:**  
+   Execute the query by clicking the **Run Query** button.
+
+### Raw Mode
+
+- Switch to raw mode to write your SQL query manually in the code editor.
+- The plugin applies the same backend validations and injects the configured catalog automatically.
+
+## Development
+
+YellowBricks is developed and maintained by **Galileo Stdio**.
+
+### Getting Started with Development
+
+1. **Clone the Repository:**
 
    ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
+   git clone https://github.com/galileo-stdio/yellow-bricks-datasource.git
+   cd yellow-bricks-datasource
+   ```
+
+2. **Install Dependencies:**
+
+   ```bash
    go mod tidy
    ```
 
-2. Build backend plugin binaries for Linux, Windows and Darwin:
+3. **Build the Plugin:**
+
+   Use your preferred build tool (e.g., `mage` or `go build`) to compile the plugin.
+
+4. **Run Tests:**
+
+   Execute the tests with:
 
    ```bash
-   mage -v
+   go test ./...
    ```
 
-3. List all available Mage targets for additional commands:
+5. **Refer to Grafana’s Plugin Development Guide:**
 
-   ```bash
-   mage -l
-   ```
+   See [Grafana Plugin Tools](https://grafana.com/developers/plugins) for detailed instructions.
 
-### Frontend
+## Troubleshooting
 
-1. Install dependencies
+- **Missing Time Column (Time series Format):**  
+  If you select the timeseries format but your query result doesn’t contain a time column (e.g., `time` or `timestamp`), the plugin will return an error. Make sure your data includes a proper time column or switch to table format.
 
-   ```bash
-   npm install
-   ```
+- **Duplicate Column Names:**  
+  The plugin validates that there are no duplicate column names (unless aliases are used). If duplicates are found, adjust your query or use aliases accordingly.
 
-2. Build plugin in development mode and run in watch mode
+- **Connection Errors:**  
+  Verify that your Databricks credentials, host, path, and token are correct in the configuration.
 
-   ```bash
-   npm run dev
-   ```
+## License
 
-3. Build plugin in production mode
+This plugin is licensed under the [MIT License](LICENSE).
 
-   ```bash
-   npm run build
-   ```
+## Author
 
-4. Run the tests (using Jest)
+**Galileo Stdio**  
+[Your Website or Contact Info]
 
-   ```bash
-   # Runs the tests and watches for changes, requires git init first
-   npm run test
+## Contributing
 
-   # Exits after running all the tests
-   npm run test:ci
-   ```
+Contributions are welcome! Please fork the repository and submit pull requests. For any issues or feature requests, please open an issue on [GitHub](https://github.com/galileo-stdio/yellow-bricks-datasource).
 
-5. Spin up a Grafana instance and run the plugin inside it (using Docker)
+---
 
-   ```bash
-   npm run server
-   ```
-
-6. Run the E2E tests (using Playwright)
-
-   ```bash
-   # Spins up a Grafana instance first that we tests against
-   npm run server
-
-   # If you wish to start a certain Grafana version. If not specified will use latest by default
-   GRAFANA_VERSION=11.3.0 npm run server
-
-   # Starts the tests
-   npm run e2e
-   ```
-
-7. Run the linter
-
-   ```bash
-   npm run lint
-
-   # or
-
-   npm run lint:fix
-   ```
-
-# Distributing your plugin
-
-When distributing a Grafana plugin either within the community or privately the plugin must be signed so the Grafana application can verify its authenticity. This can be done with the `@grafana/sign-plugin` package.
-
-_Note: It's not necessary to sign a plugin during development. The docker development environment that is scaffolded with `@grafana/create-plugin` caters for running the plugin without a signature._
-
-## Initial steps
-
-Before signing a plugin please read the Grafana [plugin publishing and signing criteria](https://grafana.com/legal/plugins/#plugin-publishing-and-signing-criteria) documentation carefully.
-
-`@grafana/create-plugin` has added the necessary commands and workflows to make signing and distributing a plugin via the grafana plugins catalog as straightforward as possible.
-
-Before signing a plugin for the first time please consult the Grafana [plugin signature levels](https://grafana.com/legal/plugins/#what-are-the-different-classifications-of-plugins) documentation to understand the differences between the types of signature level.
-
-1. Create a [Grafana Cloud account](https://grafana.com/signup).
-2. Make sure that the first part of the plugin ID matches the slug of your Grafana Cloud account.
-   - _You can find the plugin ID in the `plugin.json` file inside your plugin directory. For example, if your account slug is `acmecorp`, you need to prefix the plugin ID with `acmecorp-`._
-3. Create a Grafana Cloud API key with the `PluginPublisher` role.
-4. Keep a record of this API key as it will be required for signing a plugin
-
-## Signing a plugin
-
-### Using Github actions release workflow
-
-If the plugin is using the github actions supplied with `@grafana/create-plugin` signing a plugin is included out of the box. The [release workflow](./.github/workflows/release.yml) can prepare everything to make submitting your plugin to Grafana as easy as possible. Before being able to sign the plugin however a secret needs adding to the Github repository.
-
-1. Please navigate to "settings > secrets > actions" within your repo to create secrets.
-2. Click "New repository secret"
-3. Name the secret "GRAFANA_API_KEY"
-4. Paste your Grafana Cloud API key in the Secret field
-5. Click "Add secret"
-
-#### Push a version tag
-
-To trigger the workflow we need to push a version tag to github. This can be achieved with the following steps:
-
-1. Run `npm version <major|minor|patch>`
-2. Run `git push origin main --follow-tags`
-
-## Learn more
-
-Below you can find source code for existing app plugins and other related documentation.
-
-- [Basic data source plugin example](https://github.com/grafana/grafana-plugin-examples/tree/master/examples/datasource-basic#readme)
-- [`plugin.json` documentation](https://grafana.com/developers/plugin-tools/reference/plugin-json)
-- [How to sign a plugin?](https://grafana.com/developers/plugin-tools/publish-a-plugin/sign-a-plugin)
+*For more detailed documentation, refer to the [Grafana Plugin Developer Guide](https://grafana.com/developers/plugins).*
