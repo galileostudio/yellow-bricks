@@ -4,7 +4,10 @@ go 1.23.5
 
 toolchain go1.24.1
 
-require github.com/grafana/grafana-plugin-sdk-go v0.274.0
+require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/grafana/grafana-plugin-sdk-go v0.274.0
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.1 // indirect

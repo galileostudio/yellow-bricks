@@ -95,8 +95,7 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 
 	err := json.Unmarshal(query.JSON, &qm)
 	if err != nil {
-		return wrapErr("json unmarshal", err)
-
+		return backend.ErrDataResponse(backend.StatusBadRequest, fmt.Sprintf("json unmarshal: %v", err))
 	}
 
 	if qm.Format != "table" && qm.Format != "timeseries" {
