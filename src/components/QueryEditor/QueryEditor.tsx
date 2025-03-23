@@ -1,5 +1,5 @@
 import React, { ReactElement, useEffect, useState } from 'react';
-import { CodeEditor, InlineField, InlineFieldRow, Alert } from '@grafana/ui';
+import { CodeEditor, InlineField, InlineFieldRow } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataBricksDataSource } from '../../datasource';
 import { DatabricksQuery, DataBricksSourceOptions, FieldSelection, FilterCondition } from '../../types';
@@ -14,7 +14,7 @@ import { FilterBuilder } from './Builders/FilterBuilder';
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
-export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: Props): ReactElement {
+export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
   const [format, setFormat] = useState<string>('table');
   const [enableFilter, setEnableFilter] = useState<boolean>(query.enableFilter ?? false);
   const [enableGroup, setEnableGroup] = useState<boolean>(query.enableGroup ?? false);
@@ -34,45 +34,8 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
     { label: 'MAX', value: 'MAX' },
   ];
 
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   const handleGroupByChange = (columns: string[]) => {
     onChange({ ...query, groupBy: columns });
-  };
-
-  const getDuplicateColumns = (): string[] => {
-    const cols = query.fields
-      ?.map((f) => f.alias?.trim() || f.column?.trim())
-      .filter((col): col is string => Boolean(col)) || [];
-
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
-
-    for (const col of cols) {
-      if (seen.has(col)) {
-        duplicates.add(col);
-      } else {
-        seen.add(col);
-      }
-    }
-
-    return Array.from(duplicates);
-  };
-
-
-  const handleRunQuery = () => {
-    if (mode === 'visual') {
-      const duplicates = getDuplicateColumns();
-
-      if (duplicates.length > 0) {
-        const formatted = duplicates.map((d) => `"${d}"`).join(', ');
-        setErrorMessage(`duplicate column names are not allowed, found identical name: ${formatted}. use aliases for that.`);
-        return;
-      }
-    }
-
-    setErrorMessage(null);
-    onRunQuery();
   };
 
   useEffect(() => {
@@ -278,7 +241,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
         onToggleGroup={handleToggleGroup}
         onToggleOrder={handleToggleOrder}
         onTogglePreview={handleTogglePreview}
-        onRunQuery={handleRunQuery}
+        onRunQuery={onRunQuery}
         mode={mode}
         onModeToggle={handleModeToggle}
       />
@@ -347,8 +310,6 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: P
           {query.enablePreview && (
             <QueryPreview sql={query.queryText ?? ''} />
           )}
-
-          {errorMessage && <Alert title="Error" severity="error">{errorMessage}</Alert>}
 
         </>
       ) : (
