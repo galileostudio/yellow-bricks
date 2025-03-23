@@ -7,6 +7,7 @@ import { QueryToolbar } from './QueryBarTool';
 import { DatabaseTableSelector } from './DatabaseTableSelector';
 import { ColumnBuilder } from './ColumnBuilder';
 import { QueryPreview } from './QueryPreview';
+import { OrderBuilder } from './OrderBuilder';
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
@@ -61,10 +62,25 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
         const expr = f.aggregation ? `${f.aggregation}(${f.column})` : f.column;
         return f.alias ? `${expr} AS ${f.alias}` : expr;
       });
-      const sql = `SELECT ${selections.join(', ')} FROM ${query.database}.${query.table}`;
+
+      let sql = `SELECT ${selections.join(', ')} FROM ${query.database}.${query.table}`;
+
+      if (query.enableOrder) {
+        if (query.orderBy) {
+          sql += ` ORDER BY ${query.orderBy} ${query.orderDirection ?? 'ASC'}`;
+        }
+        
+        if (query.limit) {
+          sql += ` LIMIT ${query.limit}`;
+        }
+      }
+
+      
+
       onChange({ ...query, queryText: sql });
     }
-  }, [query.database, query.table, query.fields, mode]);
+  }, [query.database, query.table, query.fields, query.enableOrder, query.orderBy, query.orderDirection, query.limit, mode]);
+
 
   const onDatabaseChange = (v: SelectableValue<string>) => {
     onChange({ ...query, database: v.value, table: undefined, fields: [] });
@@ -179,10 +195,22 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
             />
           </div>
 
+          {query.enableOrder && (
+            <OrderBuilder
+              columns={columns}
+              orderBy={query.orderBy}
+              orderDirection={(query.orderDirection === 'ASC' || query.orderDirection === 'DESC') ? query.orderDirection : undefined}
+              limit={query.limit}
+              onOrderByChange={(col) => onChange({ ...query, orderBy: col })}
+              onOrderDirectionChange={(dir) => onChange({ ...query, orderDirection: dir })}
+              onLimitChange={(limit) => onChange({ ...query, limit })}
+            />
+          )}
+
           {query.enablePreview && (
             <QueryPreview sql={query.queryText ?? ''} />
           )}
-          
+
         </>
       ) : (
         <InlineFieldRow>
