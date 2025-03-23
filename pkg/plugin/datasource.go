@@ -86,6 +86,7 @@ func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataReques
 
 type sqlQueryPayload struct {
 	RawSQL string `json:"queryText"`
+	Format string `json:"format"`
 }
 
 func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query backend.DataQuery) backend.DataResponse {
@@ -97,6 +98,11 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 		return wrapErr("json unmarshal", err)
 
 	}
+
+	if qm.Format != "table" && qm.Format != "timeseries" {
+		return backend.ErrDataResponse(backend.StatusBadRequest, "invalid format: must be 'table' or 'timeseries'")
+	}
+	
 
 	catalog := d.config.Catalog
 	adjustedQuery := injectCatalogIntoQuery(catalog, qm.RawSQL)
@@ -112,6 +118,21 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 	if err != nil {
 		return wrapErr("failed to retrieve columns", err)
 		
+	}
+
+
+	if strings.ToLower(qm.Format) == "timeseries" {
+		hasTime := false
+		for _, col := range cols {
+			lowerCol := strings.ToLower(col)
+			if lowerCol == "time" || strings.Contains(lowerCol, "timestamp") {
+				hasTime = true
+				break
+			}
+		}
+		if !hasTime {
+			return backend.ErrDataResponse(backend.StatusBadRequest, "db has no time column: time column is missing; make sure your data includes a time column for time series format or switch to a table format that doesn't require it")
+		}
 	}
 
 	frame := data.NewFrame("response")
