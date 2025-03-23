@@ -1,5 +1,5 @@
 import React, { ReactElement, useEffect, useState } from 'react';
-import { CodeEditor, InlineField, InlineFieldRow } from '@grafana/ui';
+import { CodeEditor, InlineField, InlineFieldRow, Alert } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { DataBricksDataSource } from '../datasource';
 import { DatabricksQuery, DataBricksSourceOptions, FieldSelection } from '../types';
@@ -11,7 +11,7 @@ import { OrderBuilder } from './OrderBuilder';
 
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
-export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
+export function QueryEditor({ datasource, query, onChange, onRunQuery, data }: Props): ReactElement {
   const [format, setFormat] = useState<string>('table');
   const [enableFilter, setEnableFilter] = useState<boolean>(query.enableFilter ?? false);
   const [enableGroup, setEnableGroup] = useState<boolean>(query.enableGroup ?? false);
@@ -30,6 +30,45 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
     { label: 'MIN', value: 'MIN' },
     { label: 'MAX', value: 'MAX' },
   ];
+
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const getDuplicateColumns = (): string[] => {
+    const cols = query.fields
+      ?.map((f) => f.alias?.trim() || f.column?.trim())
+      .filter((col): col is string => Boolean(col)) || [];
+  
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+  
+    for (const col of cols) {
+      if (seen.has(col)) {
+        duplicates.add(col);
+      } else {
+        seen.add(col);
+      }
+    }
+  
+    return Array.from(duplicates);
+  };
+  
+
+  const handleRunQuery = () => {
+    if (mode === 'visual') {
+      const duplicates = getDuplicateColumns();
+  
+      if (duplicates.length > 0) {
+        const formatted = duplicates.map((d) => `"${d}"`).join(', ');
+        setErrorMessage(`duplicate column names are not allowed, found identical name: ${formatted}. use aliases for that.`);
+        return;
+      }
+    }
+  
+    setErrorMessage(null);
+    onRunQuery();
+  };
+  
+  
 
   useEffect(() => {
     onChange({
@@ -78,7 +117,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
         }
       }
 
-      
+
 
       onChange({ ...query, queryText: sql });
     }
@@ -106,7 +145,14 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
   };
 
   const addField = () => {
-    const updated = [...(query.fields || []), { column: '', aggregation: '', alias: '' }];
+    const updated = [...(query.fields || [])];
+
+    if (updated.some((f) => f.column === '*')) {
+      updated.push({ column: '', aggregation: '', alias: '' });
+    } else {
+      updated.push({ column: '*', aggregation: '', alias: '' });
+    }
+
     onChange({ ...query, fields: updated });
   };
 
@@ -163,7 +209,7 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
         onToggleGroup={handleToggleGroup}
         onToggleOrder={handleToggleOrder}
         onTogglePreview={handleTogglePreview}
-        onRunQuery={onRunQuery}
+        onRunQuery={handleRunQuery}
         mode={mode}
         onModeToggle={handleModeToggle}
       />
@@ -214,6 +260,8 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
             <QueryPreview sql={query.queryText ?? ''} />
           )}
 
+          {errorMessage && <Alert title="Error" severity="error">{errorMessage}</Alert>}
+
         </>
       ) : (
         <InlineFieldRow>
@@ -231,6 +279,8 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
           </InlineField>
         </InlineFieldRow>
       )}
+
+
     </>
   );
 }

@@ -35,7 +35,8 @@ export const ColumnBuilder: React.FC<Props> = ({ columns, aggregations, fields, 
                             options={[{ label: 'None', value: '' }, ...aggregations]}
                             value={col.aggregation || ''}
                             onChange={(v) => onChangeField(idx, 'aggregation', v.value!)}
-                            isOptionDisabled={(opt) => col.column === '*' && opt.value !== 'COUNT'}
+                            isOptionDisabled={(opt) => col.column === '*' && opt.value !== '' && opt.value !== 'COUNT'}
+
                         />
                     </InlineField>
                     <InlineField label="Alias - optional" grow>
