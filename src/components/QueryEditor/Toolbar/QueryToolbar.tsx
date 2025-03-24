@@ -62,7 +62,7 @@ export const QueryToolbar: React.FC<Props> = ({
         <Select
           width={20}
           options={formatOptions}
-          value={format}
+          value={format || 'table'}
           onChange={onFormatChange}
         />
       </InlineField>

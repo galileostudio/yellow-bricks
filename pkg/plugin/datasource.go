@@ -13,6 +13,7 @@ import (
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
+	"vitess.io/vitess/go/vt/sqlparser"
 )
 
 // Garante que Datasource implementa as interfaces necessárias
@@ -35,10 +36,33 @@ func parseQueryParams(req *backend.CallResourceRequest) (url.Values, error) {
 	return u.Query(), nil
 }
 
+func validateQuery(query string) error {
+
+	stmt, err := sqlparser.NewTestParser().Parse(query)
+	if err != nil {
+		return fmt.Errorf("query parse error: %w", err)
+	}
+
+	switch stmt.(type) {
+	case *sqlparser.Select:
+	default:
+		return fmt.Errorf("only SELECT queries are allowed")
+	}
+
+	dangerousKeywords := []string{"DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE"}
+	upperQuery := strings.ToUpper(query)
+	for _, kw := range dangerousKeywords {
+		if strings.Contains(upperQuery, kw) {
+			return fmt.Errorf("dangerous keyword detected: %s", kw)
+		}
+	}
+
+	return nil
+}
+
 func wrapErr(msg string, err error) backend.DataResponse {
 	return backend.ErrDataResponse(backend.StatusInternal, fmt.Sprintf("%s: %v", msg, err))
 }
-
 
 func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 	config, err := models.LoadPluginSettings(settings)
@@ -71,17 +95,16 @@ func injectCatalogIntoQuery(catalog, rawQuery string) string {
 	return rawQuery[:index+len(fromKeyword)] + catalog + "." + rawQuery[index+len(fromKeyword):]
 }
 
-
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
-    response := backend.NewQueryDataResponse()
-    for _, q := range req.Queries {
+	response := backend.NewQueryDataResponse()
+	for _, q := range req.Queries {
 
-        res := d.query(ctx, req.PluginContext, q)
-        response.Responses[q.RefID] = res
-    }
+		res := d.query(ctx, req.PluginContext, q)
+		response.Responses[q.RefID] = res
+	}
 
-    return response, nil
+	return response, nil
 }
 
 type sqlQueryPayload struct {
@@ -101,7 +124,11 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 	if qm.Format != "table" && qm.Format != "timeseries" {
 		return backend.ErrDataResponse(backend.StatusBadRequest, "invalid format: must be 'table' or 'timeseries'")
 	}
-	
+
+	if err := validateQuery(qm.RawSQL); err != nil {
+		backend.Logger.Error("Query validation error", "query", qm.RawSQL, "error", err.Error())
+		return backend.ErrDataResponse(backend.StatusBadRequest, err.Error())
+	}
 
 	catalog := d.config.Catalog
 	adjustedQuery := injectCatalogIntoQuery(catalog, qm.RawSQL)
@@ -109,16 +136,15 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 	rows, err := d.DB.QueryContext(ctx, adjustedQuery)
 	if err != nil {
 		return wrapErr("failed to execute query", err)
-		
+
 	}
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
 		return wrapErr("failed to retrieve columns", err)
-		
-	}
 
+	}
 
 	if strings.ToLower(qm.Format) == "timeseries" {
 		hasTime := false
@@ -193,7 +219,7 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 	case "tables":
 
 		u, err := parseQueryParams(req)
-			if err != nil {
+		if err != nil {
 			return sendError(sender, backend.StatusBadRequest, "Invalid URL")
 		}
 
@@ -207,17 +233,21 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		if err != nil {
 			return sendError(sender, backend.StatusInternal, err.Error())
 		}
+
+		if len(tables) == 0 {
+			return sendError(sender, backend.StatusNotFound, "No tables found for the selected database")
+		}
+
 		return sendJSON(sender, tables)
-	
 
 	case "columns":
-		
+
 		u, err := parseQueryParams(req)
 		if err != nil {
 			return sendError(sender, backend.StatusBadRequest, "Invalid URL")
 		}
 
-    	database := u.Get("database")
+		database := u.Get("database")
 
 		table := u.Get("table")
 		if table == "" {
@@ -227,9 +257,9 @@ func (d *Datasource) CallResource(ctx context.Context, req *backend.CallResource
 		columns, err := d.GetColumns(ctx, catalog, database, table)
 		if err != nil {
 			return sendError(sender, backend.StatusInternal, err.Error())
-    	}
-    	return sendJSON(sender, columns)
-	
+		}
+		return sendJSON(sender, columns)
+
 	}
 
 	return sendError(sender, backend.StatusNotFound, "Invalid endpoint")
@@ -275,7 +305,7 @@ func (d *Datasource) GetTables(ctx context.Context, catalog string, database str
 			return nil, err
 		}
 		tables = append(tables, table)
-		
+
 	}
 
 	return tables, nil
@@ -283,26 +313,25 @@ func (d *Datasource) GetTables(ctx context.Context, catalog string, database str
 
 func (d *Datasource) GetColumns(ctx context.Context, catalog string, database string, table string) ([]string, error) {
 
-    query := fmt.Sprintf("DESCRIBE TABLE %s.%s.%s", catalog, database, table) 
+	query := fmt.Sprintf("DESCRIBE TABLE %s.%s.%s", catalog, database, table)
 
-    rows, err := d.DB.QueryContext(ctx, query)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	rows, err := d.DB.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-    var columns []string
-    for rows.Next() {
-        var columnName, columnType, comment string
-        if err := rows.Scan(&columnName, &columnType, &comment); err != nil {
-            return nil, err
-        }
-        columns = append(columns, columnName)
-    }
+	var columns []string
+	for rows.Next() {
+		var columnName, columnType, comment string
+		if err := rows.Scan(&columnName, &columnType, &comment); err != nil {
+			return nil, err
+		}
+		columns = append(columns, columnName)
+	}
 
-    return columns, nil
+	return columns, nil
 }
-
 
 func sendJSON(sender backend.CallResourceResponseSender, data interface{}) error {
 	body, err := json.Marshal(data)

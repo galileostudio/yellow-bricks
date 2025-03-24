@@ -15,6 +15,12 @@ import { FilterBuilder } from './Builders/FilterBuilder';
 interface Props extends QueryEditorProps<DataBricksDataSource, DatabricksQuery, DataBricksSourceOptions> { }
 
 export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props): ReactElement {
+  
+  if (!query.format) {
+    onChange({ ...query, format: 'table' });
+    return <></>;
+  }
+
   const [format, setFormat] = useState<string>('table');
   const [enableFilter, setEnableFilter] = useState<boolean>(query.enableFilter ?? false);
   const [enableGroup, setEnableGroup] = useState<boolean>(query.enableGroup ?? false);
@@ -37,6 +43,13 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
   const handleGroupByChange = (columns: string[]) => {
     onChange({ ...query, groupBy: columns });
   };
+
+  useEffect(() => {
+    if (query.format !== 'table' && query.format !== 'timeseries') {
+      onChange({ ...query, format: 'table' });
+    }
+  }, []);
+  
 
   useEffect(() => {
     onChange({
@@ -132,8 +145,6 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
         }
       }
 
-
-
       onChange({ ...query, queryText: sql });
     }
   }, [query.database, query.table, query.fields, query.enableOrder, query.groupBy, query.orderBy, query.orderDirection, query.limit, query.filters, query.enableFilter, mode]);
@@ -143,10 +154,18 @@ export function QueryEditor({ datasource, query, onChange, onRunQuery }: Props):
     onChange({ ...query, database: v.value, table: undefined, fields: [] });
     setTables([]);
     setColumns([]);
-    datasource.getResource(`tables?database=${v.value}`).then((tbls) =>
-      setTables(tbls.map((t: string) => ({ label: t, value: t })))
-    );
+
+    datasource
+      .getResource(`tables?database=${v.value}`)
+      .then((tbls) => {
+        setTables(tbls.map((t: string) => ({ label: t, value: t })));
+      })
+      .catch(() => {
+        setTables([]);
+        onChange({ ...query, table: undefined });
+      });
   };
+
 
   const onTableChange = (v: SelectableValue<string>) => {
     onChange({ ...query, table: v.value, fields: [] });
