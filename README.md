@@ -120,7 +120,7 @@ YellowBricks is developed and maintained by **Galileo Stdio**.
 
 ## License
 
-This plugin is licensed under the [MIT License](LICENSE).
+This plugin is licensed under the [Apache-2.0 license](LICENSE).
 
 ## Author
 
