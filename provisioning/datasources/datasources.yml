@@ -9,6 +9,9 @@ datasources:
     version: 1
     editable: true
     jsonData:
-      path: '/resources'
+      host: "adb-123456.45.azuredatabricks.net"
+      path: "sql/1.0/endpoints/abcde"
+      catalog: "default"
     secureJsonData:
-      apiKey: 'api-key'
+      token: "FAKE-TOKEN"
+

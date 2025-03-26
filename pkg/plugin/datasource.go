@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	_ "github.com/databricks/databricks-sql-go"
 	"github.com/galileo-stdio/yellow-bricks/pkg/models"
@@ -26,6 +27,7 @@ var (
 type Datasource struct {
 	DB     *sql.DB
 	config *models.PluginSettings
+	
 }
 
 func parseQueryParams(req *backend.CallResourceRequest) (url.Values, error) {
@@ -76,7 +78,12 @@ func NewDatasource(_ context.Context, settings backend.DataSourceInstanceSetting
 		return nil, fmt.Errorf("fail to connect to Databricks: %w", err)
 	}
 
-	return &Datasource{DB: db, config: config}, nil
+	db.SetConnMaxLifetime(time.Duration(config.Timeout) * time.Second)
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+
+	return &Datasource{ DB: db, config: config, }, nil
+
 }
 
 func (d *Datasource) Dispose() {
@@ -94,6 +101,23 @@ func injectCatalogIntoQuery(catalog, rawQuery string) string {
 	}
 	return rawQuery[:index+len(fromKeyword)] + catalog + "." + rawQuery[index+len(fromKeyword):]
 }
+
+func sanitizeQueryWithLimit(query string, maxRows int) (string, error) {
+	cleanQuery := strings.TrimSpace(query)
+	cleanQuery = strings.TrimSuffix(cleanQuery, ";")
+	
+	upperQuery := strings.ToUpper(cleanQuery)
+	
+	if strings.Contains(upperQuery, "LIMIT") {
+		return fmt.Sprintf("%s;", cleanQuery), nil
+	}
+	
+	limitedQuery := fmt.Sprintf("%s LIMIT %d;", cleanQuery, maxRows)
+	
+	return limitedQuery, nil
+}
+
+
 
 func (d *Datasource) QueryData(ctx context.Context, req *backend.QueryDataRequest) (*backend.QueryDataResponse, error) {
 
@@ -132,6 +156,20 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 
 	catalog := d.config.Catalog
 	adjustedQuery := injectCatalogIntoQuery(catalog, qm.RawSQL)
+	backend.Logger.Info("Running query", "query", adjustedQuery)
+	backend.Logger.Info("Running query", "query", d.config.MaxRows)
+
+	if d.config.MaxRows > 0 {
+		adjustedQuery, err = sanitizeQueryWithLimit(adjustedQuery, d.config.MaxRows)
+		if err != nil {
+			return backend.ErrDataResponse(backend.StatusInternal, fmt.Sprintf("failed to apply maxRows: %v", err))
+		}
+	}
+	
+	backend.Logger.Info("Running query", "query", adjustedQuery)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(d.config.Timeout)*time.Second)
+	defer cancel()
 
 	rows, err := d.DB.QueryContext(ctx, adjustedQuery)
 	if err != nil {
@@ -171,7 +209,7 @@ func (d *Datasource) query(ctx context.Context, _ backend.PluginContext, query b
 		values[i] = &v
 	}
 
-	for rows.Next() {
+	for rows.Next() {		  
 		if err := rows.Scan(values...); err != nil {
 			return wrapErr("failed to scan row", err)
 		}
@@ -269,6 +307,9 @@ func (d *Datasource) GetDatabases(ctx context.Context, catalog string) ([]string
 
 	query := fmt.Sprintf("SHOW SCHEMAS IN %s", catalog)
 
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(d.config.Timeout)*time.Second)
+	defer cancel()
+
 	rows, err := d.DB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -289,6 +330,9 @@ func (d *Datasource) GetDatabases(ctx context.Context, catalog string) ([]string
 func (d *Datasource) GetTables(ctx context.Context, catalog string, database string) ([]string, error) {
 
 	query := fmt.Sprintf("SHOW TABLES IN %s.%s", catalog, database)
+
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(d.config.Timeout)*time.Second)
+	defer cancel()
 
 	rows, err := d.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -314,6 +358,8 @@ func (d *Datasource) GetTables(ctx context.Context, catalog string, database str
 func (d *Datasource) GetColumns(ctx context.Context, catalog string, database string, table string) ([]string, error) {
 
 	query := fmt.Sprintf("DESCRIBE TABLE %s.%s.%s", catalog, database, table)
+	backend.Logger.Info("Running DESCRIBE TABLE", "query", query)
+
 
 	rows, err := d.DB.QueryContext(ctx, query)
 	if err != nil {
@@ -323,13 +369,16 @@ func (d *Datasource) GetColumns(ctx context.Context, catalog string, database st
 
 	var columns []string
 	for rows.Next() {
-		var columnName, columnType, comment string
+		var columnName, columnType string
+		var comment *string
 		if err := rows.Scan(&columnName, &columnType, &comment); err != nil {
+			backend.Logger.Error("Scan failed", "error", err)
 			return nil, err
 		}
 		columns = append(columns, columnName)
 	}
 
+	backend.Logger.Info("Columns retrieved", "columns", columns)
 	return columns, nil
 }
 

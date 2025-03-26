@@ -1,28 +1,35 @@
 import { test, expect } from '@grafana/plugin-e2e';
 
-test('smoke: should render query editor', async ({ panelEditPage, readProvisionedDataSource }) => {
+test('query editor: should load databases and tables correctly', async ({ panelEditPage, readProvisionedDataSource }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   await panelEditPage.datasource.set(ds.name);
-  await expect(panelEditPage.getQueryEditorRow('A').getByRole('textbox', { name: 'Query Text' })).toBeVisible();
+
+  const databaseSelect = panelEditPage.getQueryEditorRow('A').getByLabel('Database');
+  await expect(databaseSelect).toBeVisible();
+  await databaseSelect.click();
+  const dbOptionsCount = await databaseSelect.getByRole('option').count();
+  expect(dbOptionsCount).toBeGreaterThan(0);
+
+  const tableSelect = panelEditPage.getQueryEditorRow('A').getByLabel('Table');
+  await expect(tableSelect).toBeVisible();
+  await tableSelect.click();
+  const optionsCount = await tableSelect.getByRole('option').count();
+  expect(optionsCount).toBeGreaterThan(0);
 });
 
-test('should trigger new query when Constant field is changed', async ({
-  panelEditPage,
-  readProvisionedDataSource,
-}) => {
+test('query editor: should preview SQL query', async ({ panelEditPage, readProvisionedDataSource }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   await panelEditPage.datasource.set(ds.name);
-  await panelEditPage.getQueryEditorRow('A').getByRole('textbox', { name: 'Query Text' }).fill('test query');
-  const queryReq = panelEditPage.waitForQueryDataRequest();
-  await panelEditPage.getQueryEditorRow('A').getByRole('spinbutton').fill('10');
-  await expect(await queryReq).toBeTruthy();
-});
 
-test('data query should return values 10 and 20', async ({ panelEditPage, readProvisionedDataSource }) => {
-  const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
-  await panelEditPage.datasource.set(ds.name);
-  await panelEditPage.getQueryEditorRow('A').getByRole('textbox', { name: 'Query Text' }).fill('test query');
-  await panelEditPage.setVisualization('Table');
-  await expect(panelEditPage.refreshPanel()).toBeOK();
-  await expect(panelEditPage.panel.data).toContainText(['10', '20']);
+  await panelEditPage.getQueryEditorRow('A').getByLabel('Database').click();
+  await panelEditPage.getQueryEditorRow('A').getByRole('option').first().click();
+
+  await panelEditPage.getQueryEditorRow('A').getByLabel('Table').click();
+  await panelEditPage.getQueryEditorRow('A').getByRole('option').first().click();
+
+  const addColumnBtn = panelEditPage.getQueryEditorRow('A').getByRole('button', { name: /add column/i });
+  await addColumnBtn.click();
+
+  const preview = panelEditPage.getQueryEditorRow('A').getByText(/^SELECT/);
+  await expect(preview).toBeVisible();
 });

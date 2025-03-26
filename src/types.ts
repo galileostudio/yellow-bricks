@@ -34,18 +34,31 @@ export interface FilterCondition {
   condition?: 'AND' | 'OR';
 }
 
-
 export const DEFAULT_QUERY: Partial<DatabricksQuery> = {
   fields: [],
 };
 
+export type AuthType = 'token' | 'oauth-passthrough' | 'oauth-m2m' | 'azure-on-behalf-of';
 
 export interface DataBricksSourceOptions extends DataSourceJsonData {
   host?: string;
   path?: string;
   catalog?: string;
+  authType?: 'pat' | 'oauth-m2m' | 'azure-obo';
+  azureCloud?: string;
+  tenantId?: string;
+  clientId?: string;
+  retries?: number;
+  pause?: number;
+  timeout?: number;
+  maxRows?: number;
+  retryTimeout?: number;
+  debug?: boolean;
+  privateConnection?: string;
 }
 
 export interface DataBricksSecureJsonData {
   token?: string;
+  clientSecret?: string;
+  clientId?: string;
 }

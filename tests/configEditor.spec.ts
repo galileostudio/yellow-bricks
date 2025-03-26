@@ -1,31 +1,37 @@
 import { test, expect } from '@grafana/plugin-e2e';
-import { MyDataSourceOptions, MySecureJsonData } from '../src/types';
+import { DataBricksSourceOptions, DataBricksSecureJsonData } from '../src/types';
 
-test('smoke: should render config editor', async ({ createDataSourceConfigPage, readProvisionedDataSource, page }) => {
+test('config editor: should render correctly', async ({ createDataSourceConfigPage, readProvisionedDataSource, page }) => {
   const ds = await readProvisionedDataSource({ fileName: 'datasources.yml' });
   await createDataSourceConfigPage({ type: ds.type });
+
+  await expect(page.getByLabel('Catalog')).toBeVisible();
   await expect(page.getByLabel('Path')).toBeVisible();
+  await expect(page.getByLabel('Token')).toBeVisible();
+  await expect(page.getByLabel('Host')).toBeVisible();
 });
-test('"Save & test" should be successful when configuration is valid', async ({
-  createDataSourceConfigPage,
-  readProvisionedDataSource,
-  page,
-}) => {
-  const ds = await readProvisionedDataSource<MyDataSourceOptions, MySecureJsonData>({ fileName: 'datasources.yml' });
+
+test('config editor: should succeed with valid config', async ({ createDataSourceConfigPage, readProvisionedDataSource, page }) => {
+  const ds = await readProvisionedDataSource<DataBricksSourceOptions, DataBricksSecureJsonData>({ fileName: 'datasources.yml' });
   const configPage = await createDataSourceConfigPage({ type: ds.type });
-  await page.getByRole('textbox', { name: 'Path' }).fill(ds.jsonData.path ?? '');
-  await page.getByRole('textbox', { name: 'API Key' }).fill(ds.secureJsonData?.apiKey ?? '');
+
+  await page.getByLabel('Host').fill(ds.jsonData.host ?? '');
+  await page.getByLabel('Path').fill(ds.jsonData.path ?? '');
+  await page.getByLabel('Catalog').fill(ds.jsonData.catalog ?? '');
+  await page.getByLabel('Token').fill(ds.secureJsonData?.token ?? '');
+
   await expect(configPage.saveAndTest()).toBeOK();
 });
 
-test('"Save & test" should fail when configuration is invalid', async ({
-  createDataSourceConfigPage,
-  readProvisionedDataSource,
-  page,
-}) => {
-  const ds = await readProvisionedDataSource<MyDataSourceOptions, MySecureJsonData>({ fileName: 'datasources.yml' });
+test('config editor: should fail with missing token', async ({ createDataSourceConfigPage, readProvisionedDataSource, page }) => {
+  const ds = await readProvisionedDataSource<DataBricksSourceOptions, DataBricksSecureJsonData>({ fileName: 'datasources.yml' });
   const configPage = await createDataSourceConfigPage({ type: ds.type });
-  await page.getByRole('textbox', { name: 'Path' }).fill(ds.jsonData.path ?? '');
+
+  await page.getByLabel('Host').fill(ds.jsonData.host ?? '');
+  await page.getByLabel('Path').fill(ds.jsonData.path ?? '');
+  await page.getByLabel('Catalog').fill(ds.jsonData.catalog ?? '');
+
+  // Não preenche Token intencionalmente
   await expect(configPage.saveAndTest()).not.toBeOK();
-  await expect(configPage).toHaveAlert('error', { hasText: 'API key is missing' });
+  await expect(configPage).toHaveAlert('error', { hasText: 'Token is missing' });
 });
